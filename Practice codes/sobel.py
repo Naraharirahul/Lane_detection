@@ -25,7 +25,9 @@ def abs_sobel_thresh(img, orient='x', thresh_min=0, thresh_max=255):
     gray = cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
     if orient == 'x':
         sobelx = cv2.Sobel(gray, cv2.CV_64F, 1, 0)
+        # print(sobelx
         abs_sobelx = np.absolute(sobelx)
+        # print(abs_sobelx)
         scaled_sobel = np.uint8(255*abs_sobelx/np.max(abs_sobelx))
     else:
         sobely = cv2.Sobel(gray, cv2.CV_64F, 0, 1)
