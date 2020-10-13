@@ -14,10 +14,10 @@ def find_lane_pixels(binary_warped):
     # Find the peak of the left and right halves of the histogram
     # These will be the starting point for the left and right lines
     midpoint = np.int(histogram.shape[0]//2)
-    print(midpoint)
+    # print(midpoint)
     leftx_base = np.argmax(histogram[:midpoint])
     rightx_base = np.argmax(histogram[midpoint:]) + midpoint
-
+    
     # HYPERPARAMETERS
     # Choose the number of sliding windows
     nwindows = 9
@@ -28,6 +28,7 @@ def find_lane_pixels(binary_warped):
 
     # Set height of windows - based on nwindows above and image shape
     window_height = np.int(binary_warped.shape[0]//nwindows)
+    print(binary_warped.shape)
     # Identify the x and y positions of all nonzero pixels in the image
     nonzero = binary_warped.nonzero()
     nonzeroy = np.array(nonzero[0])
