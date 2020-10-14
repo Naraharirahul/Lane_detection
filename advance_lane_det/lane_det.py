@@ -55,11 +55,23 @@ def threshold(undist):
     binary = cv2.bitwise_or(binary_output, hls_output)
     return binary
 
+def perspective(binary):
+    offset = 100
+    img_size = (binary.shape[1], binary.shape[0])
+    src = np.float32([(185,720), (593, 449), (681, 449), (1125, 720)] )
+    dst = np.float32([[offset, img_size[1]], [offset, 0], [img_size[0]- offset, 0], [img_size[0] - offset, img_size[1]]])
+    M = cv2.getPerspectiveTransform(src, dst)
+    M_inv = cv2.getPerspectiveTransform(dst, src)
+    warped = cv2.warpPerspective(undist, M, img_size)
+
+    return warped, M_inv, M
+
 files = os.listdir("camera_cal/")
 objectpoints, imagepoints = calibration(files)
 undist = cal_undist(objectpoints, imagepoints)
-images = threshold(undist)
-plt.imshow(images, cmap='gray')
+binary = threshold(undist)
+warped, M_inv, M = perspective(binary)
+plt.imshow(warped, cmap='gray')
 plt.show()
 
 
