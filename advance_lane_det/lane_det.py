@@ -67,14 +67,20 @@ def threshold(warped):
     binary = cv2.bitwise_or(binary_output, hls_output)
     return binary
 
+def histogram(img):
+    bottom_half = img[img.shape[0] //2 :,:]
+    sum_hist = np.sum(bottom_half,axis=0)
+    return sum_hist
+
+
 files = os.listdir("camera_cal/")
 objectpoints, imagepoints = calibration(files)
 undist = cal_undist(objectpoints, imagepoints)
 warped, M_inv, M = perspective(undist)
 binary = threshold(warped)
-plt.imshow(binary, cmap='gray')
-plt.show()
-
+sum = histogram(binary)
+# plt.imshow(binary, cmap='gray')
+# plt.show()
 
 
 
