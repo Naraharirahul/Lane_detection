@@ -34,8 +34,20 @@ def cal_undist(objectpoints, imagepoints):
         undist = cv2.undistort(img, mtx, dist, None, mtx)    
         return undist
 
-def threshold(undist):
-    gray = cv2.cvtColor(undist,cv2.COLOR_RGB2GRAY)
+def perspective(undist):
+    offset = 200
+    img_size = (undist.shape[1], undist.shape[0])
+    src = np.float32([(185,720), (593, 446), (673, 446), (1094, 720)] )
+    dst = np.float32([[offset, img_size[1]], [offset, 0], [img_size[0]- offset, 0], [img_size[0] - offset, img_size[1]]])
+    M = cv2.getPerspectiveTransform(src, dst)
+    M_inv = cv2.getPerspectiveTransform(dst, src)
+    warped = cv2.warpPerspective(undist, M, img_size)
+
+    return warped, M_inv, M
+
+    
+def threshold(warped):
+    gray = cv2.cvtColor(warped,cv2.COLOR_RGB2GRAY)
     sobelx = cv2.Sobel(gray, cv2.CV_64F, 1, 0, ksize=5)
     sobely = cv2.Sobel(gray, cv2.CV_64F, 0, 1, ksize=5)
 
@@ -47,7 +59,7 @@ def threshold(undist):
     binary_output = np.zeros_like(grad_thesh)
     binary_output[(grad_thesh >= 30) & (grad_thesh <= 255)] = 1
 
-    hls_image = cv2.cvtColor(undist, cv2.COLOR_RGB2HLS)
+    hls_image = cv2.cvtColor(warped, cv2.COLOR_RGB2HLS)
     s_channel = hls_image[:,:,2]
     hls_output = np.zeros_like(s_channel)
     hls_output[(s_channel > 50) & (s_channel <=255)] = 1
@@ -55,23 +67,12 @@ def threshold(undist):
     binary = cv2.bitwise_or(binary_output, hls_output)
     return binary
 
-def perspective(binary):
-    offset = 100
-    img_size = (binary.shape[1], binary.shape[0])
-    src = np.float32([(185,720), (593, 449), (681, 449), (1125, 720)] )
-    dst = np.float32([[offset, img_size[1]], [offset, 0], [img_size[0]- offset, 0], [img_size[0] - offset, img_size[1]]])
-    M = cv2.getPerspectiveTransform(src, dst)
-    M_inv = cv2.getPerspectiveTransform(dst, src)
-    warped = cv2.warpPerspective(undist, M, img_size)
-
-    return warped, M_inv, M
-
 files = os.listdir("camera_cal/")
 objectpoints, imagepoints = calibration(files)
 undist = cal_undist(objectpoints, imagepoints)
-binary = threshold(undist)
-warped, M_inv, M = perspective(binary)
-plt.imshow(warped, cmap='gray')
+warped, M_inv, M = perspective(undist)
+binary = threshold(warped)
+plt.imshow(binary, cmap='gray')
 plt.show()
 
 
