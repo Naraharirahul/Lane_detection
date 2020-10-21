@@ -70,7 +70,61 @@ def threshold(warped):
 def histogram(img):
     bottom_half = img[img.shape[0] //2 :,:]
     sum_hist = np.sum(bottom_half,axis=0)
-    return sum_hist
+    out_img = np.dstack((img, img, img))*255
+    midpoint = np.int(sum_hist.shape[0]//2)
+    leftx_base = np.argmax(sum_hist[:midpoint])
+    rightx_base = np.argmax(sum_hist[midpoint:]) + midpoint
+    
+    nwindows = 9
+    margin = 100
+    minipix = 50
+
+    window_height = np.int(img.shape[0]//nwindows)
+    
+    leftx_current = leftx_base
+    rightx_current = rightx_base
+    left_lane_inds = []
+    right_lane_inds = []
+
+    nonzero = img.nonzero()
+    nonzerox = np.array(nonzero[1])
+    nonzeroy = np.array(nonzero[0])
+
+    for window in range(nwindows):
+        win_y_low = img.shape[0] - (window+1)*window_height
+        win_y_high = img.shape[0] - (window)*window_height
+        win_x_left_low = leftx_base - margin
+        win_x_left_high = leftx_base + margin
+        win_x_right_low = rightx_base - margin
+        win_x_right_high = rightx_base + margin
+
+        cv2.rectangle(out_img,(win_x_left_low, win_y_low), (win_x_left_high, win_y_high), (0,255,0), 2)
+        cv2.rectangle(out_img, (win_x_right_low, win_y_low), (win_x_right_high, win_y_high), (0,255,0), 2)
+
+        good_left_inds = ((nonzeroy >= win_y_low) & (nonzeroy < win_y_high) & (nonzerox >= win_x_left_low) & (nonzerox <= win_x_left_high))
+        good_right_inds = ((nonzeroy >= win_y_low) & (nonzeroy < win_y_high) & (nonzerox >= win_x_right_low) & (nonzerox <= win_x_right_high))
+
+        left_lane_inds.append(good_left_inds)
+        right_lane_inds.append(good_right_inds)
+
+        if len(good_left_inds) > minipix:
+            leftx_current = np.int(np.mean(nonzerox[good_left_inds]))
+        if(len(good_right_inds)) > minipix:
+            rightx_current = np.int(np.mean(good_right_inds))
+
+    try:
+        left_lane_inds = np.concatenate(left_lane_inds)
+        right_lane_inds = np.concatenate(right_lane_inds)
+    except ValueError:0
+        pass    
+
+    leftx = nonzerox[left_lane_inds]
+    lefty = nonzeroy[left_lane_inds]
+
+    rightx = nonzerox[right_lane_inds]
+    righty = nonzeroy[right_lane_inds]
+    
+    return leftx, lefty, rightx, righty, out_img
 
 
 files = os.listdir("camera_cal/")
@@ -78,7 +132,8 @@ objectpoints, imagepoints = calibration(files)
 undist = cal_undist(objectpoints, imagepoints)
 warped, M_inv, M = perspective(undist)
 binary = threshold(warped)
-sum = histogram(binary)
+# sum = histogram(binary)
+# plt.plot(sum)
 # plt.imshow(binary, cmap='gray')
 # plt.show()
 
