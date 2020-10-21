@@ -110,21 +110,48 @@ def histogram(img):
         if len(good_left_inds) > minipix:
             leftx_current = np.int(np.mean(nonzerox[good_left_inds]))
         if(len(good_right_inds)) > minipix:
-            rightx_current = np.int(np.mean(good_right_inds))
+            rightx_current = np.int(np.mean(nonzerox[good_right_inds]))
 
     try:
         left_lane_inds = np.concatenate(left_lane_inds)
         right_lane_inds = np.concatenate(right_lane_inds)
-    except ValueError:0
+    except ValueError:
         pass    
 
     leftx = nonzerox[left_lane_inds]
     lefty = nonzeroy[left_lane_inds]
-
+    prin(leftx)
     rightx = nonzerox[right_lane_inds]
     righty = nonzeroy[right_lane_inds]
     
     return leftx, lefty, rightx, righty, out_img
+
+def polynomial_fit(img):
+    leftx, lefty, rightx, righty, out_img = histogram(img)
+
+    left_fit = np.polyfit(lefty, leftx, 2)
+    right_fit = np.polyfit(righty, rightx, 2)
+
+    ploty = np.linspace(0, img.shape[0]-1, img.shape[0] )
+    try:
+        left_fitx = left_fit[0]*ploty**2 + left_fit[1]*ploty + left_fit[2]
+        right_fitx = right_fit[0]*ploty**2 + right_fit[1]*ploty + right_fit[2]
+    except TypeError:
+        # Avoids an error if `left` and `right_fit` are still none or incorrect
+        print('The function failed to fit a line!')
+        left_fitx = 1*ploty**2 + 1*ploty
+        right_fitx = 1*ploty**2 + 1*ploty
+
+    ## Visualization ##
+    # Colors in the left and right lane regions
+    out_img[lefty, leftx] = [255, 0, 0]
+    out_img[righty, rightx] = [0, 0, 255]
+
+    # Plots the left and right polynomials on the lane lines
+    plt.plot(left_fitx, ploty, color='yellow')
+    plt.plot(right_fitx, ploty, color='yellow')
+
+    return out_img
 
 
 files = os.listdir("camera_cal/")
@@ -132,10 +159,11 @@ objectpoints, imagepoints = calibration(files)
 undist = cal_undist(objectpoints, imagepoints)
 warped, M_inv, M = perspective(undist)
 binary = threshold(warped)
+out_img = polynomial_fit(binary)
 # sum = histogram(binary)
 # plt.plot(sum)
-# plt.imshow(binary, cmap='gray')
-# plt.show()
+plt.imshow(out_img, cmap='gray')
+plt.show()
 
 
 
