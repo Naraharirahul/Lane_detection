@@ -70,7 +70,7 @@ def threshold(warped):
 def histogram(img):
     bottom_half = img[img.shape[0] //2 :,:]
     sum_hist = np.sum(bottom_half,axis=0)
-    out_img = np.dstack((img, img, img))*255
+    out_img = np.dstack((img, img, img))
     midpoint = np.int(sum_hist.shape[0]//2)
     leftx_base = np.argmax(sum_hist[:midpoint])
     rightx_base = np.argmax(sum_hist[midpoint:]) + midpoint
@@ -101,12 +101,14 @@ def histogram(img):
         cv2.rectangle(out_img,(win_x_left_low, win_y_low), (win_x_left_high, win_y_high), (0,255,0), 2)
         cv2.rectangle(out_img, (win_x_right_low, win_y_low), (win_x_right_high, win_y_high), (0,255,0), 2)
 
-        good_left_inds = ((nonzeroy >= win_y_low) & (nonzeroy < win_y_high) & (nonzerox >= win_x_left_low) & (nonzerox <= win_x_left_high))
-        good_right_inds = ((nonzeroy >= win_y_low) & (nonzeroy < win_y_high) & (nonzerox >= win_x_right_low) & (nonzerox <= win_x_right_high))
+        good_left_inds = ((nonzeroy >= win_y_low) & (nonzeroy < win_y_high) & (nonzerox >= win_x_left_low) & (nonzerox <= win_x_left_high)).nonzero()[0]
+        good_right_inds = ((nonzeroy >= win_y_low) & (nonzeroy < win_y_high) & (nonzerox >= win_x_right_low) & (nonzerox <= win_x_right_high)).nonzero()[0]
+
 
         left_lane_inds.append(good_left_inds)
         right_lane_inds.append(good_right_inds)
-
+        print(left_lane_inds)
+        print(len(good_right_inds), 'right')
         if len(good_left_inds) > minipix:
             leftx_current = np.int(np.mean(nonzerox[good_left_inds]))
         if(len(good_right_inds)) > minipix:
@@ -120,7 +122,7 @@ def histogram(img):
 
     leftx = nonzerox[left_lane_inds]
     lefty = nonzeroy[left_lane_inds]
-    prin(leftx)
+    print(leftx)
     rightx = nonzerox[right_lane_inds]
     righty = nonzeroy[right_lane_inds]
     
@@ -137,7 +139,7 @@ def polynomial_fit(img):
         left_fitx = left_fit[0]*ploty**2 + left_fit[1]*ploty + left_fit[2]
         right_fitx = right_fit[0]*ploty**2 + right_fit[1]*ploty + right_fit[2]
     except TypeError:
-        # Avoids an error if `left` and `right_fit` are still none or incorrect
+        
         print('The function failed to fit a line!')
         left_fitx = 1*ploty**2 + 1*ploty
         right_fitx = 1*ploty**2 + 1*ploty
