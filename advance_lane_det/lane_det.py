@@ -126,8 +126,13 @@ def histogram(img):
     rightx = nonzerox[right_lane_inds]
     righty = nonzeroy[right_lane_inds]
 
-    left_fit = np.polyfit(lefty, leftx, 2)
-    right_fit = np.polyfit(righty, rightx, 2)
+    # Converting from pixel data to real-world data
+
+    ym_per_pix = 30/720
+    xm_per_pix = 3.7/700
+
+    left_fit = np.polyfit(lefty * ym_per_pix, leftx * xm_per_pix, 2)
+    right_fit = np.polyfit(righty * ym_per_pix, rightx * xm_per_pix, 2)
     # print(left_fit)
     ploty = np.linspace(0, img.shape[0]-1, img.shape[0])
     try:
@@ -160,6 +165,15 @@ def histogram(img):
     cv2.fillPoly(window_img, np.int_([right_line_pts]), (0,255, 0))
     result = cv2.addWeighted(out_img, 1, window_img, 0.3, 0)
 
+    # Measuring the curvature of the road
+
+    y_eval = np.max(ploty)
+    left_curve = (( 1 + (2*left_fit[0]*y_eval*ym_per_pix + left_fit[1])**2)**1.5) / np.absolute(2*left_fit[0])
+
+    right_curve = (( 1 + (2*right_fit[0]*y_eval*ym_per_pix + right_fit[1])**2)**1.5) / np.absolute(2*right_fit[0])
+
+    print(" Left and right radius of curvature", left_curve, right_curve)
+
     return result
 
 files = os.listdir("camera_cal/")
@@ -168,8 +182,8 @@ undist = cal_undist(objectpoints, imagepoints)
 warped, M_inv, M = perspective(undist)
 binary = threshold(warped)
 out_img = histogram(binary)
-plt.imshow(out_img, cmap='gray')
-plt.show()
+# plt.imshow(out_img, cmap='gray')
+# plt.show()
 
 
 
