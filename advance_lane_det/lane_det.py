@@ -3,6 +3,8 @@ import cv2
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 import os
+from moviepy.editor import VideoFileClip
+from IPython.display import HTML
 
 def calibration(files):
     nx = 9
@@ -20,28 +22,26 @@ def calibration(files):
             imagepoints.append(corners)
             objectpoints.append(objp)
 
-            img = cv2.drawChessboardCorners(image, (9,6), corners, ret)
+            # img = cv2.drawChessboardCorners(image, (9,6), corners, ret)
 
     # return img, objectpoints, imagepoints
     return objectpoints, imagepoints
 
-def cal_undist(objectpoints, imagepoints):
-    test_images_dir = os.listdir("test_images/")
-    for image_dir in test_images_dir:
-        image = 'test_images/' + image_dir
-        img = mpimg.imread(image)
-        ret, mtx, dist, rvecs, tvecs = cv2.calibrateCamera(objectpoints, imagepoints, img.shape[1:], None, None)
-        undist = cv2.undistort(img, mtx, dist, None, mtx)    
-        return undist
+def cal_undist(image, objectpoints, imagepoints):
+    img = mpimg.imread(image)
+    ret, mtx, dist, rvecs, tvecs = cv2.calibrateCamera(objectpoints, imagepoints, img.shape[1:], None, None)
+    undist = cv2.undistort(img, mtx, dist, None, mtx)    
+    return undist
 
 def perspective(undist):
     offset = 200
     img_size = (undist.shape[1], undist.shape[0])
-    src = np.float32([(185,720), (593, 446), (673, 446), (1094, 720)] )
+    # src = np.float32([(185,720), (593, 446), (673, 446), (1094, 720)] )
+    src = np.float32([(580,460), (203,720), (1207,720), (705,460)])
     dst = np.float32([[offset, img_size[1]], [offset, 0], [img_size[0]- offset, 0], [img_size[0] - offset, img_size[1]]])
     M = cv2.getPerspectiveTransform(src, dst)
     M_inv = cv2.getPerspectiveTransform(dst, src)
-    warped = cv2.warpPerspective(undist, M, img_size)
+    warped = cv2.warpPerspective(undist, M, img_size, undist.shape[1::-1], flags=cv2.INTER_LINEAR)
 
     return warped, M_inv, M
 
@@ -52,19 +52,46 @@ def threshold(warped):
     sobely = cv2.Sobel(gray, cv2.CV_64F, 0, 1, ksize=5)
 
     # grad_thesh = np.sqrt(sobelx**2, sobely**2)
+    abs_sobelx = np.absolute(sobelx)
+    abs_sobely = np.absolute(sobely)
     grad_thesh = np.absolute(sobelx)
-    scale_fac = np.max(grad_thesh)/255
-    grad_thesh = (grad_thesh/scale_fac).astype(np.uint8)
+    # scale_fac = np.max(grad_thesh)/255
+    grad_thesh = np.arctan2(abs_sobely, abs_sobelx)
 
-    binary_output = np.zeros_like(grad_thesh)
+    binary_output = np.zeros_like(gray)
     binary_output[(grad_thesh >= 30) & (grad_thesh <= 255)] = 1
 
     hls_image = cv2.cvtColor(warped, cv2.COLOR_RGB2HLS)
     s_channel = hls_image[:,:,2]
+    l_channel = hls_image[:,:,1]
+    h_channel = hls_image[:,:,0]
     hls_output = np.zeros_like(s_channel)
-    hls_output[(s_channel > 50) & (s_channel <=255)] = 1
+    hls_output[(s_channel > 60) & (s_channel <=255) ] = 1
 
-    binary = cv2.bitwise_or(binary_output, hls_output)
+    hls_output_1 = np.zeros_like(s_channel)
+    hls_output_1[(s_channel > 60) & (s_channel <=255) & (l_channel > 0) & (l_channel > 140) & (h_channel > 20) & (h_channel > 60)] = 1
+
+
+    # plt.imshow(hls_output, cmap='gray')
+    # plt.show()
+    rgb_image = warped
+    r_channel = rgb_image[:,:,0]
+    g_channel = rgb_image[:,:,1]
+    b_channel = rgb_image[:,:,2]
+
+    rgb_output = np.zeros_like(r_channel)
+    rgb_output[(30 < r_channel) & (30 < g_channel) & (30 < b_channel)] = 1
+
+    rgb_output_1 = np.zeros_like(r_channel)
+    rgb_output_1[(r_channel > 200) & (g_channel > 200) & (b_channel > 200)] = 1
+
+    hls_rgb_binary = cv2.bitwise_or(hls_output,rgb_output) #, rgb_output_1)
+    # plt.imshow(hls_rgb_binary, cmap='gray')
+    # plt.show()
+    binary = cv2.bitwise_or(binary_output, hls_output,rgb_output_1,rgb_output)
+    # binary = binary_output | hls_output | rgb_output_1 | rgb_output | hls_output_1
+    plt.imshow(binary, cmap='gray')
+    plt.show()
     return binary
 
 def histogram(img):
@@ -176,14 +203,45 @@ def histogram(img):
 
     return result
 
+# def process_image(image):
+#     imshape = image.shape
+#     # print("shape",imshape)
+#     copy_image = np.copy(image)
+#     gray_image = grayscale(copy_image)
+#     blur_image = gaussian_blur(gray_image,5)
+#     canny_image = canny(blur_image,50,150)
+#     vertices = np.array([[(200,660),(600, 450), (750, 450), (1200,660)]], dtype=np.int32)
+#     image_roi = region_of_interest(canny_image,vertices)
+#     line_image = hough_lines(image_roi,1,np.pi/180,10,40,30)
+#     result = weighted_img(line_image,copy_image) 
+#     # plt.imshow(line_image)
+#     # plt.show()
+#     # NOTE: The output you return should be a color image (3 channel) for processing video below
+#     # TODO: put your pipeline here,
+#     # you should return the final output (image where lines are drawn on lanes)
+
+#     return result
+
+# challenge_output = 'test_videos_output/challenge.mp4'
+# # clip3 = VideoFileClip('test_videos/challenge.mp4').subclip(0,0.25)
+# clip3 = VideoFileClip('test_videos/challenge.mp4')
+# challenge_clip = clip3.fl_image(process_image)
+# %time challenge_clip.write_videofile(challenge_output, audio=False)
+
+
 files = os.listdir("camera_cal/")
 objectpoints, imagepoints = calibration(files)
-undist = cal_undist(objectpoints, imagepoints)
-warped, M_inv, M = perspective(undist)
-binary = threshold(warped)
-out_img = histogram(binary)
-# plt.imshow(out_img, cmap='gray')
-# plt.show()
+
+
+test_images_dir = os.listdir("test_images/")
+for image_dir in test_images_dir:
+    image = 'test_images/' + image_dir
+    undist = cal_undist(image, objectpoints, imagepoints)
+    warped, M_inv, M = perspective(undist)
+    binary = threshold(warped)
+    # out_img = histogram(binary)
+    # plt.imshow(binary, cmap='gray')
+    # plt.show()
 
 
 
