@@ -42,8 +42,8 @@ def perspective(undist):
     M = cv2.getPerspectiveTransform(src, dst)
     M_inv = cv2.getPerspectiveTransform(dst, src)
     warped = cv2.warpPerspective(undist, M, img_size, undist.shape[1::-1], flags=cv2.INTER_LINEAR)
-
-    return warped, M_inv, M
+    warped_1 = cv2.warpPerspective(undist, M_inv, img_size, undist.shape[1::-1], flags=cv2.INTER_LINEAR)
+    return warped, warped_1, M_inv
 
     
 def threshold(warped):
@@ -55,43 +55,38 @@ def threshold(warped):
     abs_sobelx = np.absolute(sobelx)
     abs_sobely = np.absolute(sobely)
     grad_thesh = np.absolute(sobelx)
-    # scale_fac = np.max(grad_thesh)/255
+    scale_sobel = np.uint8(255*abs_sobelx/np.max(abs_sobelx))
     grad_thesh = np.arctan2(abs_sobely, abs_sobelx)
 
     binary_output = np.zeros_like(gray)
     binary_output[(grad_thesh >= 30) & (grad_thesh <= 255)] = 1
+
+    x_binary = np.zeros_like(scale_sobel)
+    x_binary[(scale_sobel >=20) & (scale_sobel <=100)] = 1
+
 
     hls_image = cv2.cvtColor(warped, cv2.COLOR_RGB2HLS)
     s_channel = hls_image[:,:,2]
     l_channel = hls_image[:,:,1]
     h_channel = hls_image[:,:,0]
     hls_output = np.zeros_like(s_channel)
-    hls_output[(s_channel > 60) & (s_channel <=255) ] = 1
+    hls_output[(s_channel > 170) & (s_channel <=255) ] = 1
 
-    hls_output_1 = np.zeros_like(s_channel)
-    hls_output_1[(s_channel > 60) & (s_channel <=255) & (l_channel > 0) & (l_channel > 140) & (h_channel > 20) & (h_channel > 60)] = 1
+    # hls_output_1 = np.zeros_like(s_channel)
+    # hls_output_1[(s_channel > 60) & (s_channel <=255) & (l_channel > 0) & (l_channel > 140) & (h_channel > 20) & (h_channel > 60)] = 1
 
+    gray_binary = np.zeros_like(gray)
+    gray_binary[(gray > 180) & (gray <=255)] = 1
 
-    # plt.imshow(hls_output, cmap='gray')
-    # plt.show()
     rgb_image = warped
     r_channel = rgb_image[:,:,0]
     g_channel = rgb_image[:,:,1]
     b_channel = rgb_image[:,:,2]
 
     rgb_output = np.zeros_like(r_channel)
-    rgb_output[(30 < r_channel) & (30 < g_channel) & (30 < b_channel)] = 1
+    rgb_output[( 230 < r_channel) & (255 >= r_channel) ] = 1
 
-    rgb_output_1 = np.zeros_like(r_channel)
-    rgb_output_1[(r_channel > 200) & (g_channel > 200) & (b_channel > 200)] = 1
-
-    hls_rgb_binary = cv2.bitwise_or(hls_output,rgb_output) #, rgb_output_1)
-    # plt.imshow(hls_rgb_binary, cmap='gray')
-    # plt.show()
-    binary = cv2.bitwise_or(binary_output, hls_output,rgb_output_1,rgb_output)
-    # binary = binary_output | hls_output | rgb_output_1 | rgb_output | hls_output_1
-    plt.imshow(binary, cmap='gray')
-    plt.show()
+    binary = cv2.bitwise_or(x_binary,hls_output, rgb_output) #, rgb_output_1)
     return binary
 
 def histogram(img):
@@ -126,8 +121,8 @@ def histogram(img):
         win_x_right_low = rightx_current - margin
         win_x_right_high = rightx_current + margin
 
-        # cv2.rectangle(out_img,(win_x_left_low, win_y_low), (win_x_left_high, win_y_high), (0,255,0), 2)
-        # cv2.rectangle(out_img, (win_x_right_low, win_y_low), (win_x_right_high, win_y_high), (0,255,0), 2)
+        cv2.rectangle(out_img,(win_x_left_low, win_y_low), (win_x_left_high, win_y_high), (0,255,0), 2)
+        cv2.rectangle(out_img, (win_x_right_low, win_y_low), (win_x_right_high, win_y_high), (0,255,0), 2)
 
         good_left_inds = ((nonzeroy >= win_y_low) & (nonzeroy < win_y_high) & (nonzerox >= win_x_left_low) & (nonzerox <= win_x_left_high)).nonzero()[0]
         good_right_inds = ((nonzeroy >= win_y_low) & (nonzeroy < win_y_high) & (nonzerox >= win_x_right_low) & (nonzerox <= win_x_right_high)).nonzero()[0]
@@ -155,13 +150,16 @@ def histogram(img):
 
     # Converting from pixel data to real-world data
 
-    ym_per_pix = 30/720
-    xm_per_pix = 3.7/700
+    # ym_per_pix = 30/720
+    # xm_per_pix = 3.7/700
+    ym_per_pix = 1
+    xm_per_pix = 1
 
     left_fit = np.polyfit(lefty * ym_per_pix, leftx * xm_per_pix, 2)
     right_fit = np.polyfit(righty * ym_per_pix, rightx * xm_per_pix, 2)
-    # print(left_fit)
+    
     ploty = np.linspace(0, img.shape[0]-1, img.shape[0])
+    # ploty = np.linspace(0,719,num=720)
     try:
         left_fitx = left_fit[0]*ploty**2 + left_fit[1]*ploty + left_fit[2]
         right_fitx = right_fit[0]*ploty**2 + right_fit[1]*ploty + right_fit[2]
@@ -171,12 +169,9 @@ def histogram(img):
         left_fitx = 1*ploty**2 + 1*ploty
         right_fitx = 1*ploty**2 + 1*ploty
 
-    ## Visualization ##
-    # Colors in the left and right lane regions
     out_img[lefty, leftx] = [255, 0, 0]
     out_img[righty, rightx] = [0, 0, 255]
 
-    # Plots the left and right polynomials on the lane lines
     plt.plot(left_fitx, ploty, color='yellow')
     plt.plot(right_fitx, ploty, color='yellow')
 
@@ -192,16 +187,35 @@ def histogram(img):
     cv2.fillPoly(window_img, np.int_([right_line_pts]), (0,255, 0))
     result = cv2.addWeighted(out_img, 1, window_img, 0.3, 0)
 
-    # Measuring the curvature of the road
-
     y_eval = np.max(ploty)
     left_curve = (( 1 + (2*left_fit[0]*y_eval*ym_per_pix + left_fit[1])**2)**1.5) / np.absolute(2*left_fit[0])
 
     right_curve = (( 1 + (2*right_fit[0]*y_eval*ym_per_pix + right_fit[1])**2)**1.5) / np.absolute(2*right_fit[0])
 
-    print(" Left and right radius of curvature", left_curve, right_curve)
+    return result,left_fitx, right_fitx, ploty
 
-    return result
+def lane_vis(image, warped_1, M_inv, left_fitx,right_fitx, ploty):
+    # left_point = np.array([np.transpose(np.vstack([left_fitx, ploty]))])
+    # right_point = np.array([np.transpose(np.vstack([right_fitx, ploty]))])
+    # points = np.hstack((left_point,right_point))
+
+    warp_zero = np.zeros_like(warped_1).astype(np.uint8)
+    color_warp = np.dstack((warp_zero, warp_zero, warp_zero))
+    pts_left = np.array([np.transpose(np.vstack([left_fitx, ploty]))])
+    pts_right = np.array([np.flipud(np.transpose(np.vstack([right_fitx, ploty])))])
+    pts = np.hstack((pts_left, pts_right))
+
+    cv2.fillPoly(color_warp, np.int_([pts]), (0,255, 0))
+    # Draw the lane onto the warped blank image
+    # cv2.fillPoly(color_warp, np.int_([pts]), (0,255, 0))
+
+
+    # cv2.fillPoly(color_warp, np.int_([points]), (0,255,0))
+    newwarp = cv2.warpPerspective(color_warp, M_inv, (image.shape[1], image.shape[0])) 
+    
+    out_img = cv2.addWeighted(warped_1, 1, newwarp, 0.3, 0)
+
+    return out_img
 
 # def process_image(image):
 #     imshape = image.shape
@@ -237,11 +251,12 @@ test_images_dir = os.listdir("test_images/")
 for image_dir in test_images_dir:
     image = 'test_images/' + image_dir
     undist = cal_undist(image, objectpoints, imagepoints)
-    warped, M_inv, M = perspective(undist)
+    warped,warped_1, M_inv = perspective(undist)
     binary = threshold(warped)
-    # out_img = histogram(binary)
-    # plt.imshow(binary, cmap='gray')
-    # plt.show()
+    result,left_fitx, right_fitx, ploty = histogram(binary)
+    out_img = lane_vis(image, warped, M_inv, left_fitx,right_fitx, ploty)
+    plt.imshow(out_img, cmap='gray')
+    plt.show()
 
 
 
