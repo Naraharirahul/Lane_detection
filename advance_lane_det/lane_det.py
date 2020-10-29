@@ -22,13 +22,9 @@ def calibration(files):
             imagepoints.append(corners)
             objectpoints.append(objp)
 
-            # img = cv2.drawChessboardCorners(image, (9,6), corners, ret)
-
-    # return img, objectpoints, imagepoints
     return objectpoints, imagepoints
 
 def cal_undist(image, objectpoints, imagepoints):
-    # img = mpimg.imread(image)
     ret, mtx, dist, rvecs, tvecs = cv2.calibrateCamera(objectpoints, imagepoints, image.shape[1:], None, None)
     undist = cv2.undistort(image, mtx, dist, None, mtx)    
     return undist
@@ -36,7 +32,6 @@ def cal_undist(image, objectpoints, imagepoints):
 def perspective(undist):
     offset = 200
     img_size = (undist.shape[1], undist.shape[0])
-    # src = np.float32([(185,720), (593, 446), (673, 446), (1094, 720)] )
     src = np.float32([(580,460), (203,720), (1207,720), (705,460)])
     dst = np.float32([[offset, img_size[1]], [offset, 0], [img_size[0]- offset, 0], [img_size[0] - offset, img_size[1]]])
     M = cv2.getPerspectiveTransform(src, dst)
@@ -51,7 +46,6 @@ def threshold(warped):
     sobelx = cv2.Sobel(gray, cv2.CV_64F, 1, 0, ksize=5)
     sobely = cv2.Sobel(gray, cv2.CV_64F, 0, 1, ksize=5)
 
-    # grad_thesh = np.sqrt(sobelx**2, sobely**2)
     abs_sobelx = np.absolute(sobelx)
     abs_sobely = np.absolute(sobely)
     grad_thesh = np.absolute(sobelx)
@@ -71,9 +65,6 @@ def threshold(warped):
     h_channel = hls_image[:,:,0]
     hls_output = np.zeros_like(s_channel)
     hls_output[(s_channel > 170) & (s_channel <=255) ] = 1
-
-    # hls_output_1 = np.zeros_like(s_channel)
-    # hls_output_1[(s_channel > 60) & (s_channel <=255) & (l_channel > 0) & (l_channel > 140) & (h_channel > 20) & (h_channel > 60)] = 1
 
     gray_binary = np.zeros_like(gray)
     gray_binary[(gray > 180) & (gray <=255)] = 1
@@ -147,11 +138,6 @@ def histogram(img):
 
     rightx = nonzerox[right_lane_inds]
     righty = nonzeroy[right_lane_inds]
-
-    # Converting from pixel data to real-world data
-
-    # ym_per_pix = 30/720
-    # xm_per_pix = 3.7/700
     ym_per_pix = 1
     xm_per_pix = 1
 
@@ -159,7 +145,6 @@ def histogram(img):
     right_fit = np.polyfit(righty * ym_per_pix, rightx * xm_per_pix, 2)
     
     ploty = np.linspace(0, img.shape[0]-1, img.shape[0])
-    # ploty = np.linspace(0,719,num=720)
     try:
         left_fitx = left_fit[0]*ploty**2 + left_fit[1]*ploty + left_fit[2]
         right_fitx = right_fit[0]*ploty**2 + right_fit[1]*ploty + right_fit[2]
@@ -171,10 +156,6 @@ def histogram(img):
 
     out_img[lefty, leftx] = [255, 0, 0]
     out_img[righty, rightx] = [0, 0, 255]
-
-    # plt.plot(left_fitx, ploty, color='yellow')
-    # plt.plot(right_fitx, ploty, color='yellow')
-
     left_line_window1 = np.array([np.transpose(np.vstack([left_fitx-margin, ploty]))])
     left_line_window2 = np.array([np.flipud(np.transpose(np.vstack([left_fitx+margin, ploty])))])
     left_line_pts = np.hstack((left_line_window1, left_line_window2))
@@ -195,60 +176,34 @@ def histogram(img):
     return result,left_fitx, right_fitx, ploty
 
 def lane_vis(image, warped_1, M_inv, left_fitx,right_fitx, ploty):
-
-    # img = mpimg.imread(image)
     warp_zero = np.zeros_like(warped_1).astype(np.uint8)
-    # warp_zero = np.zeros_like(params['binary_warped']).astype(np.uint8)
     color_warp = np.dstack((warp_zero, warp_zero, warp_zero))
-    # pts_left = np.array([np.transpose(np.vstack([left_fitx, ploty]))])
-    # pts_right = np.array([np.flipud(np.transpose(np.vstack([right_fitx, ploty])))])
-    # pts = np.hstack((pts_left, pts_right))
-
     left_point = np.array([np.transpose(np.vstack([left_fitx, ploty]))])
-    right_point = np.array([np.transpose(np.vstack([right_fitx, ploty]))])
+    right_point = np.array([np.flipud(np.transpose(np.vstack([right_fitx, ploty])))])
     points = np.hstack((left_point,right_point))
     cv2.fillPoly(color_warp, np.int_([points]), (0,255, 0))
-    # Draw the lane onto the warped blank image
-    # cv2.fillPoly(color_warp, np.int_([pts]), (0,255, 0))
-
-
-    # cv2.fillPoly(color_warp, np.int_([points]), (0,255,0))
     newwarp = cv2.warpPerspective(color_warp, M_inv, (image.shape[1], image.shape[0])) 
-    
     out_img = cv2.addWeighted(image, 1, newwarp, 0.3, 0)
-
     return out_img
+
 
 files = os.listdir("camera_cal/")
 objectpoints, imagepoints = calibration(files)
 
 def process_image(image):
-    # imshape = image.shape
-    # print("shape",imshape)
     undist = cal_undist(image, objectpoints, imagepoints)
     warped,warped_1, M_inv = perspective(undist)
     binary = threshold(warped)
     result,left_fitx, right_fitx, ploty = histogram(binary)
     out_img = lane_vis(image, binary, M_inv, left_fitx,right_fitx, ploty)
-    plt.imshow(out_img)
-    plt.show()
-    # NOTE: The output you return should be a color image (3 channel) for processing video below
-    # TODO: put your pipeline here,
-    # you should return the final output (image where lines are drawn on lanes)
 
-#     return result
+    return out_img
 
-# challenge_output = 'test_videos_output/challenge.mp4'
-
-challenge_output =  'project_video.mp4'
-clip3 = VideoFileClip('project_video.mp4').subclip(0,0.25)
-# clip3 = VideoFileClip('test_videos/challenge.mp4')
+challenge_output =  'project_video_output.mp4'
+# clip3 = VideoFileClip('project_video.mp4').subclip(0,1.25)
+clip3 = VideoFileClip('project_video.mp4')
 challenge_clip = clip3.fl_image(process_image)
-# %time challenge_clip.write_videofile(challenge_output, audio=False)
-
-
-# files = os.listdir("camera_cal/")
-# objectpoints, imagepoints = calibration(files)
+challenge_clip.write_videofile(challenge_output, audio=False)
 
 
 # test_images_dir = os.listdir("test_images/")
