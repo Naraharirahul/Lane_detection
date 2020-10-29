@@ -28,9 +28,9 @@ def calibration(files):
     return objectpoints, imagepoints
 
 def cal_undist(image, objectpoints, imagepoints):
-    img = mpimg.imread(image)
-    ret, mtx, dist, rvecs, tvecs = cv2.calibrateCamera(objectpoints, imagepoints, img.shape[1:], None, None)
-    undist = cv2.undistort(img, mtx, dist, None, mtx)    
+    # img = mpimg.imread(image)
+    ret, mtx, dist, rvecs, tvecs = cv2.calibrateCamera(objectpoints, imagepoints, image.shape[1:], None, None)
+    undist = cv2.undistort(image, mtx, dist, None, mtx)    
     return undist
 
 def perspective(undist):
@@ -121,8 +121,8 @@ def histogram(img):
         win_x_right_low = rightx_current - margin
         win_x_right_high = rightx_current + margin
 
-        cv2.rectangle(out_img,(win_x_left_low, win_y_low), (win_x_left_high, win_y_high), (0,255,0), 2)
-        cv2.rectangle(out_img, (win_x_right_low, win_y_low), (win_x_right_high, win_y_high), (0,255,0), 2)
+        # cv2.rectangle(out_img,(win_x_left_low, win_y_low), (win_x_left_high, win_y_high), (0,255,0), 2)
+        # cv2.rectangle(out_img, (win_x_right_low, win_y_low), (win_x_right_high, win_y_high), (0,255,0), 2)
 
         good_left_inds = ((nonzeroy >= win_y_low) & (nonzeroy < win_y_high) & (nonzerox >= win_x_left_low) & (nonzerox <= win_x_left_high)).nonzero()[0]
         good_right_inds = ((nonzeroy >= win_y_low) & (nonzeroy < win_y_high) & (nonzerox >= win_x_right_low) & (nonzerox <= win_x_right_high)).nonzero()[0]
@@ -172,8 +172,8 @@ def histogram(img):
     out_img[lefty, leftx] = [255, 0, 0]
     out_img[righty, rightx] = [0, 0, 255]
 
-    plt.plot(left_fitx, ploty, color='yellow')
-    plt.plot(right_fitx, ploty, color='yellow')
+    # plt.plot(left_fitx, ploty, color='yellow')
+    # plt.plot(right_fitx, ploty, color='yellow')
 
     left_line_window1 = np.array([np.transpose(np.vstack([left_fitx-margin, ploty]))])
     left_line_window2 = np.array([np.flipud(np.transpose(np.vstack([left_fitx+margin, ploty])))])
@@ -195,17 +195,19 @@ def histogram(img):
     return result,left_fitx, right_fitx, ploty
 
 def lane_vis(image, warped_1, M_inv, left_fitx,right_fitx, ploty):
-    # left_point = np.array([np.transpose(np.vstack([left_fitx, ploty]))])
-    # right_point = np.array([np.transpose(np.vstack([right_fitx, ploty]))])
-    # points = np.hstack((left_point,right_point))
 
+    # img = mpimg.imread(image)
     warp_zero = np.zeros_like(warped_1).astype(np.uint8)
+    # warp_zero = np.zeros_like(params['binary_warped']).astype(np.uint8)
     color_warp = np.dstack((warp_zero, warp_zero, warp_zero))
-    pts_left = np.array([np.transpose(np.vstack([left_fitx, ploty]))])
-    pts_right = np.array([np.flipud(np.transpose(np.vstack([right_fitx, ploty])))])
-    pts = np.hstack((pts_left, pts_right))
+    # pts_left = np.array([np.transpose(np.vstack([left_fitx, ploty]))])
+    # pts_right = np.array([np.flipud(np.transpose(np.vstack([right_fitx, ploty])))])
+    # pts = np.hstack((pts_left, pts_right))
 
-    cv2.fillPoly(color_warp, np.int_([pts]), (0,255, 0))
+    left_point = np.array([np.transpose(np.vstack([left_fitx, ploty]))])
+    right_point = np.array([np.transpose(np.vstack([right_fitx, ploty]))])
+    points = np.hstack((left_point,right_point))
+    cv2.fillPoly(color_warp, np.int_([points]), (0,255, 0))
     # Draw the lane onto the warped blank image
     # cv2.fillPoly(color_warp, np.int_([pts]), (0,255, 0))
 
@@ -213,50 +215,52 @@ def lane_vis(image, warped_1, M_inv, left_fitx,right_fitx, ploty):
     # cv2.fillPoly(color_warp, np.int_([points]), (0,255,0))
     newwarp = cv2.warpPerspective(color_warp, M_inv, (image.shape[1], image.shape[0])) 
     
-    out_img = cv2.addWeighted(warped_1, 1, newwarp, 0.3, 0)
+    out_img = cv2.addWeighted(image, 1, newwarp, 0.3, 0)
 
     return out_img
-
-# def process_image(image):
-#     imshape = image.shape
-#     # print("shape",imshape)
-#     copy_image = np.copy(image)
-#     gray_image = grayscale(copy_image)
-#     blur_image = gaussian_blur(gray_image,5)
-#     canny_image = canny(blur_image,50,150)
-#     vertices = np.array([[(200,660),(600, 450), (750, 450), (1200,660)]], dtype=np.int32)
-#     image_roi = region_of_interest(canny_image,vertices)
-#     line_image = hough_lines(image_roi,1,np.pi/180,10,40,30)
-#     result = weighted_img(line_image,copy_image) 
-#     # plt.imshow(line_image)
-#     # plt.show()
-#     # NOTE: The output you return should be a color image (3 channel) for processing video below
-#     # TODO: put your pipeline here,
-#     # you should return the final output (image where lines are drawn on lanes)
-
-#     return result
-
-# challenge_output = 'test_videos_output/challenge.mp4'
-# # clip3 = VideoFileClip('test_videos/challenge.mp4').subclip(0,0.25)
-# clip3 = VideoFileClip('test_videos/challenge.mp4')
-# challenge_clip = clip3.fl_image(process_image)
-# %time challenge_clip.write_videofile(challenge_output, audio=False)
-
 
 files = os.listdir("camera_cal/")
 objectpoints, imagepoints = calibration(files)
 
-
-test_images_dir = os.listdir("test_images/")
-for image_dir in test_images_dir:
-    image = 'test_images/' + image_dir
+def process_image(image):
+    # imshape = image.shape
+    # print("shape",imshape)
     undist = cal_undist(image, objectpoints, imagepoints)
     warped,warped_1, M_inv = perspective(undist)
     binary = threshold(warped)
     result,left_fitx, right_fitx, ploty = histogram(binary)
-    out_img = lane_vis(image, warped, M_inv, left_fitx,right_fitx, ploty)
-    plt.imshow(out_img, cmap='gray')
+    out_img = lane_vis(image, binary, M_inv, left_fitx,right_fitx, ploty)
+    plt.imshow(out_img)
     plt.show()
+    # NOTE: The output you return should be a color image (3 channel) for processing video below
+    # TODO: put your pipeline here,
+    # you should return the final output (image where lines are drawn on lanes)
+
+#     return result
+
+# challenge_output = 'test_videos_output/challenge.mp4'
+
+challenge_output =  'project_video.mp4'
+clip3 = VideoFileClip('project_video.mp4').subclip(0,0.25)
+# clip3 = VideoFileClip('test_videos/challenge.mp4')
+challenge_clip = clip3.fl_image(process_image)
+# %time challenge_clip.write_videofile(challenge_output, audio=False)
+
+
+# files = os.listdir("camera_cal/")
+# objectpoints, imagepoints = calibration(files)
+
+
+# test_images_dir = os.listdir("test_images/")
+# for image_dir in test_images_dir:
+#     image = 'test_images/' + image_dir
+#     undist = cal_undist(image, objectpoints, imagepoints)
+#     warped,warped_1, M_inv = perspective(undist)
+#     binary = threshold(warped)
+#     result,left_fitx, right_fitx, ploty = histogram(binary)
+#     out_img = lane_vis(image, binary, M_inv, left_fitx,right_fitx, ploty)
+    # plt.imshow(out_img, cmap='gray')
+    # plt.show()
 
 
 
